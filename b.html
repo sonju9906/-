@@ -1,0 +1,104 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>HairMatch - 얼굴형 분석 결과</title>
+  <style>
+    * { box-sizing: border-box; }
+    body { font-family: 'Noto Sans KR', sans-serif; background-color: #f8fafc; margin: 0; padding: 20px; color: #1e293b; }
+    .container { max-width: 500px; margin: 0 auto; background: white; padding: 30px; border-radius: 16px; box-shadow: 0 4px 20px rgba(0,0,0,0.08); }
+    h2 { text-align: center; margin-bottom: 24px; color: #0f172a; }
+    
+    .image-preview { text-align: center; margin-bottom: 20px; }
+    .image-preview img { width: 180px; height: 180px; object-fit: cover; border-radius: 50%; border: 4px solid #e2e8f0; }
+
+    .result-card { background: #f1f5f9; padding: 20px; border-radius: 12px; margin-bottom: 20px; }
+    .result-item { margin-bottom: 12px; }
+    .result-item:last-child { margin-bottom: 0; }
+    .label { font-size: 0.85rem; color: #64748b; font-weight: bold; display: block; margin-bottom: 4px; }
+    .value { font-size: 1.1rem; font-weight: bold; color: #0f172a; }
+    .highlight { color: #2563eb; }
+
+    .advice-box { background: #eff6ff; border-left: 4px solid #2563eb; padding: 15px; border-radius: 4px; font-size: 0.95rem; line-height: 1.5; color: #1e40af; margin-bottom: 24px; }
+
+    .btn { width: 100%; padding: 14px; background: #2563eb; color: white; border: none; border-radius: 8px; font-size: 1rem; font-weight: bold; cursor: pointer; transition: background 0.2s; }
+    .btn:hover { background: #1d4ed8; }
+    .btn-secondary { background: #94a3b8; margin-top: 10px; }
+    .btn-secondary:hover { background: #64748b; }
+  </style>
+</head>
+<body>
+
+<div class="container">
+  <h2>분석 결과</h2>
+
+  <!-- 업로드한 사진 미리보기 -->
+  <div class="image-preview">
+    <img id="userImg" src="https://via.placeholder.com/180?text=User+Face" alt="사용자 얼굴">
+  </div>
+
+  <!-- 분석 정보 출력 카드 -->
+  <div class="result-card">
+    <div class="result-item">
+      <span class="label">진단된 얼굴형</span>
+      <span class="value highlight" id="faceShape">분석 중...</span>
+    </div>
+    <hr style="border: 0; border-top: 1px solid #e2e8f0; margin: 12px 0;">
+    <div class="result-item">
+      <span class="label">추천 헤어스타일</span>
+      <span class="value" id="hairStyle">분석 중...</span>
+    </div>
+  </div>
+
+  <!-- 스타일링 조언 -->
+  <div class="advice-box" id="adviceBox">
+    스타일링 조언을 불러오는 중입니다...
+  </div>
+
+  <!-- 액션 버튼 -->
+  <button class="btn" onclick="goToSynthesis()">이 스타일로 AI 합성하기</button>
+  <button class="btn btn-secondary" onclick="history.back()">다시 촬영하기</button>
+</div>
+
+<script>
+  let imageId = "";
+  let selectedStyle = "";
+
+  // 페이지 로드 시 localStorage 또는 URL 파라미터에서 데이터 읽어오기
+  window.onload = function() {
+    // 이전 페이지에서 저장한 /analyze 응답 데이터 가져오기
+    const analyzeData = JSON.parse(localStorage.getItem('analyzeResult'));
+
+    if (!analyzeData || analyzeData.status !== 'success') {
+      alert("분석 데이터를 찾을 수 없습니다. 첫 페이지로 이동합니다.");
+      window.location.href = "index.html";
+      return;
+    }
+
+    // 전역 변수에 정보 저장 (합성 요청 시 사용)
+    imageId = analyzeData.image_id;
+    selectedStyle = analyzeData.recommendation.hair_style;
+
+    // UI 요소에 데이터 반영
+    document.getElementById('userImg').src = `http://localhost:8000${analyzeData.image_url}`;
+    document.getElementById('faceShape').innerText = analyzeData.face_shape;
+    document.getElementById('hairStyle').innerText = analyzeData.recommendation.hair_style;
+    document.getElementById('adviceBox').innerText = analyzeData.recommendation.advice;
+  };
+
+  // 합성 페이지 또는 로딩 페이지로 이동하는 함수
+  function goToSynthesis() {
+    // 합성 시 필요한 정보 세션/로컬스토리지에 저장 후 이동
+    localStorage.setItem('synthesisTarget', JSON.stringify({
+      image_id: imageId,
+      selected_style: selectedStyle
+    }));
+
+    // AI 합성 및 로딩이 이뤄질 다음 페이지로 이동 (예: b.html 또는 loading.html)
+    window.location.href = "b.html"; 
+  }
+</script>
+
+</body>
+</html>
