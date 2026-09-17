@@ -1,0 +1,289 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>HairMatch - AI 얼굴형 분석 결과</title>
+    <style>
+        :root {
+            --primary-color: #8B5CF6;
+            --primary-hover: #7C3AED;
+            --bg-color: #F8F5FF;
+            --card-bg: #FFFFFF;
+            --text-main: #1E1B4B;
+            --text-sub: #655B96;
+            --border-color: #E9D5FF;
+            --border-radius: 20px;
+            --shadow-smooth: 0 12px 32px rgba(139, 92, 246, 0.08);
+        }
+
+        * { box-sizing: border-box; }
+        body {
+            font-family: 'Pretendard', -apple-system, BlinkMacSystemFont, sans-serif;
+            margin: 0;
+            padding: 30px 16px;
+            background-color: var(--bg-color);
+            color: var(--text-main);
+        }
+
+        .container {
+            max-width: 900px;
+            margin: 0 auto;
+            display: flex;
+            flex-direction: column;
+            gap: 32px;
+        }
+
+        /* 헤더 */
+        .header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            background: var(--card-bg);
+            padding: 20px 32px;
+            border-radius: var(--border-radius);
+            border: 1px solid var(--border-color);
+            box-shadow: var(--shadow-smooth);
+        }
+        .header h2 { margin: 0; color: var(--primary-color); font-size: 22px; }
+        .btn-home {
+            text-decoration: none;
+            background: #F3E8FF;
+            color: var(--primary-color);
+            padding: 10px 18px;
+            border-radius: 12px;
+            font-weight: 700;
+            font-size: 14px;
+        }
+
+        /* 메인 리포트 카드 */
+        .report-card {
+            background: var(--card-bg);
+            border-radius: var(--border-radius);
+            padding: 36px;
+            border: 1px solid var(--border-color);
+            box-shadow: var(--shadow-smooth);
+            display: grid;
+            grid-template-columns: 300px 1fr;
+            gap: 36px;
+        }
+
+        .image-section {
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+            align-items: center;
+        }
+        .result-img-box {
+            width: 100%;
+            height: 320px;
+            border-radius: 16px;
+            overflow: hidden;
+            border: 2px solid var(--border-color);
+            background: #FAF5FF;
+        }
+        .result-img-box img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
+        .img-label { font-size: 13px; font-weight: 700; color: var(--text-sub); }
+
+        /* 분석 결과 텍스트 영역 */
+        .analysis-info {
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+        }
+
+        .face-type-badge {
+            display: inline-block;
+            background: #2E1065;
+            color: #DDD6FE;
+            padding: 6px 14px;
+            border-radius: 8px;
+            font-size: 13px;
+            font-weight: 800;
+            width: fit-content;
+        }
+
+        .result-title {
+            font-size: 28px;
+            font-weight: 800;
+            margin: 0;
+            color: var(--text-main);
+        }
+
+        .desc-box {
+            background: #FAF5FF;
+            padding: 18px;
+            border-radius: 14px;
+            border: 1px solid var(--border-color);
+            font-size: 14px;
+            line-height: 1.6;
+            color: var(--text-sub);
+        }
+
+        /* 추천 헤어 스타일 태그 */
+        .recommend-section h4 { margin: 0 0 10px 0; font-size: 15px; color: var(--text-main); }
+        .hair-tags { display: flex; gap: 8px; flex-wrap: wrap; }
+        .tag {
+            background: #E9D5FF;
+            color: #6B21A8;
+            padding: 8px 14px;
+            border-radius: 20px;
+            font-size: 13px;
+            font-weight: 700;
+        }
+
+        /* 미용실 추천 카세트 */
+        .salon-section {
+            background: var(--card-bg);
+            border-radius: var(--border-radius);
+            padding: 32px;
+            border: 1px solid var(--border-color);
+            box-shadow: var(--shadow-smooth);
+        }
+
+        .section-title {
+            font-size: 18px;
+            font-weight: 800;
+            margin-bottom: 20px;
+            color: var(--primary-color);
+        }
+
+        .salon-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 16px;
+        }
+
+        .salon-card {
+            border: 1px solid var(--border-color);
+            border-radius: 14px;
+            padding: 20px;
+            background: #FAF5FF;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .salon-name { font-size: 16px; font-weight: 800; margin-bottom: 4px; }
+        .salon-sub { font-size: 13px; color: var(--text-sub); }
+        .btn-reserve {
+            background: var(--primary-color);
+            color: white;
+            border: none;
+            padding: 10px 16px;
+            border-radius: 10px;
+            font-weight: 700;
+            font-size: 13px;
+            cursor: pointer;
+        }
+
+        @media (max-width: 768px) {
+            .report-card { grid-template-columns: 1fr; }
+            .salon-grid { grid-template-columns: 1fr; }
+        }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <!-- 상단 헤더 -->
+    <header class="header">
+        <h2>✨ 헤어매치 AI 분석 리포트</h2>
+        <a href="index.html" class="btn-home">다시 분석하기</a>
+    </header>
+
+    <!-- 메인 분석 리포트 -->
+    <section class="report-card">
+        <div class="image-section">
+            <div class="result-img-box">
+                <img id="userImg" src="promo_before.jpg" alt="분석 사진">
+            </div>
+            <span class="img-label">📸 분석된 정면 원본 이미지</span>
+        </div>
+
+        <div class="analysis-info">
+            <div>
+                <span class="face-type-badge" id="faceTypeBadge">AI 진단 완료</span>
+                <h3 class="result-title" id="faceTypeTitle">계란형 (Oval Face)</h3>
+            </div>
+
+            <div class="desc-box" id="analysisDesc">
+                이목구비의 상·중·하안부 비율이 이상적이며 턱선이 부드럽게 이어지는 완벽한 밸런스의 얼굴형입니다. 대부분의 헤어스타일을 잘 소화할 수 있는 특징을 가지고 있습니다.
+            </div>
+
+            <div class="recommend-section">
+                <h4>💇 AI 추천 베스트 헤어스타일</h4>
+                <div class="hair-tags" id="hairTags">
+                    <span class="tag"># 레이어드 컷</span>
+                    <span class="tag"># 시스루 뱅</span>
+                    <span class="tag"># 빌드펌</span>
+                    <span class="tag"># 허쉬컷</span>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- 주변 추천 미용실 섹션 -->
+    <section class="salon-section">
+        <div class="section-title">📍 해당 스타일 시술 추천 미용실 (내 위치 기반)</div>
+        <div class="salon-grid">
+            <div class="salon-card">
+                <div>
+                    <div class="salon-name">준오헤어 강남역점</div>
+                    <div class="salon-sub">⭐ 4.9 (리뷰 1,240) • 350m 근처</div>
+                </div>
+                <button class="btn-reserve" onclick="alert('예약 페이지로 이동합니다.')">예약하기</button>
+            </div>
+            <div class="salon-card">
+                <div>
+                    <div class="salon-name">박승철헤어스투디오</div>
+                    <div class="salon-sub">⭐ 4.8 (리뷰 890) • 500m 근처</div>
+                </div>
+                <button class="btn-reserve" onclick="alert('예약 페이지로 이동합니다.')">예약하기</button>
+            </div>
+        </div>
+    </section>
+</div>
+
+<script>
+    document.addEventListener("DOMContentLoaded", () => {
+        // localStorage에 저장된 백엔드 응답 데이터를 가져옵니다.
+        const savedData = localStorage.getItem('analyzeResult');
+
+        if (savedData) {
+            try {
+                const data = JSON.parse(savedData);
+
+                // 백엔드에서 받아온 데이터가 있을 경우 화면 요소 업데이트
+                if (data.face_type) {
+                    document.getElementById('faceTypeTitle').innerText = data.face_type;
+                }
+                if (data.description) {
+                    document.getElementById('analysisDesc').innerText = data.description;
+                }
+                if (data.recommended_styles && Array.isArray(data.recommended_styles)) {
+                    const tagContainer = document.getElementById('hairTags');
+                    tagContainer.innerHTML = '';
+                    data.recommended_styles.forEach(style => {
+                        const tag = document.createElement('span');
+                        tag.className = 'tag';
+                        tag.innerText = `# ${style}`;
+                        tagContainer.appendChild(tag);
+                    });
+                }
+                if (data.image_url) {
+                    document.getElementById('userImg').src = data.image_url;
+                }
+            } catch (e) {
+                console.error("데이터 파싱 에러:", e);
+            }
+        }
+    });
+</script>
+
+</body>
+</html>
