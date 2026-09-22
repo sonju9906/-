@@ -1,0 +1,16 @@
+// index.html 내부의 폼 제출 핸들러 예시
+document.getElementById('uploadForm').addEventListener('submit', function(e) {
+    e.preventDefault();
+    const fileInput = document.getElementById('imageInput');
+    const file = fileInput.files[0];
+
+    if (file) {
+        const reader = new FileReader();
+        reader.onload = function(e) {
+            // 이미지를 세션 스토리지에 저장 후 로딩 페이지로 이동
+            sessionStorage.setItem('uploadImage', e.target.result);
+            window.location.href = '/loading';
+        };
+        reader.readAsDataURL(file);
+    }
+});
