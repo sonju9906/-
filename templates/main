@@ -1,0 +1,52 @@
+import io
+import cv2
+import numpy as np
+import tensorflow as tf
+import mediapipe as mp
+from fastapi import FastAPI, Request, File, UploadFile
+from fastapi.responses import HTMLResponse, JSONResponse
+from fastapi.templating import Jinja2Templates
+from fastapi.staticfiles import StaticFiles
+
+# MediaPipe 및 Keras 설정
+from mediapipe.python.solutions import face_mesh as mp_face_mesh_module
+
+app = FastAPI()
+
+app.mount("/static", StaticFiles(directory="static"), name="static")
+templates = Jinja2Templates(directory="templates")
+
+model = tf.keras.models.load_model("hairmatch_face_model.keras", compile=False)
+mp_face_mesh = mp_face_mesh_module.FaceMesh(static_image_mode=True, max_num_faces=1)
+
+# --- 1. 페이지 라우팅 ---
+@app.get("/", response_class=HTMLResponse)
+async def page_main(request: Request):
+    return templates.TemplateResponse("index.html", {"request": request})
+
+@app.get("/loading", response_class=HTMLResponse)
+async def page_loading(request: Request):
+    return templates.TemplateResponse("loading.html", {"request": request})
+
+@app.get("/result", response_class=HTMLResponse)
+async def page_result(request: Request):
+    return templates.TemplateResponse("result.html", {"request": request})
+
+@app.get("/mypage", response_class=HTMLResponse)
+async def page_mypage(request: Request):
+    return templates.TemplateResponse("mypage.html", {"request": request})
+
+# --- 2. AI 분석 백엔드 API ---
+@app.post("/api/analyze")
+async def analyze_face(file: UploadFile = File(...)):
+    contents = await file.read()
+    nparr = np.frombuffer(contents, np.uint8)
+    img = cv2.imdecode(nparr, cv2.IMREAD_COLOR)
+
+    # MediaPipe / TensorFlow 추론 로직 수행...
+    # (예시 데이터 반환)
+    return JSONResponse(content={
+        "face_shape": "계란형",
+        "recommended_styles": ["시스루 댄디컷", "아이비리그컷"],
+        "message": "성공적으로 분석되었습니다."
+    })
