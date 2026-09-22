@@ -1,0 +1,62 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <title>AI 분석 중 - HairMatch</title>
+    <link rel="stylesheet" href="/static/css/style.css">
+    <style>
+        .loading-container { text-align: center; margin-top: 100px; }
+        .spinner {
+            width: 50px; height: 50px;
+            border: 5px solid #f3f3f3; border-top: 5px solid #3498db;
+            border-radius: 50%; animation: spin 1s linear infinite;
+            margin: 20px auto;
+        }
+        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+    </style>
+</head>
+<body>
+    <div class="loading-container">
+        <div class="spinner"></div>
+        <h2>얼굴형 및 헤어스타일 분석 중입니다...</h2>
+        <p>잠시만 기다려 주세요 (약 3~5초 소요)</p>
+    </div>
+
+    <script>
+        window.addEventListener('DOMContentLoaded', async () => {
+            const imageData = sessionStorage.getItem('uploadImage');
+            if (!imageData) {
+                alert('업로드된 이미지가 없습니다.');
+                window.location.href = '/';
+                return;
+            }
+
+            try {
+                // SessionStorage의 Base64 이미지를 Blob 데이터로 변환 후 API 호출
+                const response = await fetch(imageData);
+                const blob = await response.blob();
+                const formData = new FormData();
+                formData.append('file', blob, 'user_face.jpg');
+
+                const apiRes = await fetch('/api/analyze', {
+                    method: 'POST',
+                    body: formData
+                });
+
+                if (apiRes.ok) {
+                    const result = await apiRes.json();
+                    sessionStorage.setItem('analysisResult', JSON.stringify(result));
+                    window.location.href = '/result';
+                } else {
+                    alert('분석 도중 오류가 발생했습니다.');
+                    window.location.href = '/';
+                }
+            } catch (err) {
+                console.error(err);
+                alert('서버통신 오류가 발생했습니다.');
+                window.location.href = '/';
+            }
+        });
+    </script>
+</body>
+</html>
