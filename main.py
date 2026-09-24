@@ -1,110 +1,148 @@
-import cv2
-import mediapipe as mp
-import tensorflow as tf
-import numpy as np
-import psycopg2  # [수정] sqlite3 대신 PostgreSQL 전용 드라이버 라이브러리 임포트
 import io
-from fastapi import FastAPI, File, UploadFile, HTTPException, Form
-from fastapi.middleware.cors import CORSMiddleware
-from sqlalchemy import create_engine  # 상단에 engine 생성을 위한 모듈 추가
+import cv2
+import numpy as np
+import tensorflow as tf
+from typing import List, Optional
+from datetime import datetime
 
-app = FastAPI()
+from fastapi import FastAPI, Request, File, UploadFile, Depends, HTTPException, status, Response
+from fastapi.responses import HTMLResponse, JSONResponse
+from fastapi.templating import Jinja2Templates
+from fastapi.staticfiles import StaticFiles
 
-# CORS 설정 (HTML 프론트엔드 연동용)
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=["*"],
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
+# MediaPipe 호환성 임포트
+from mediapipe.python.solutions import face_mesh as mp_face_mesh_module
 
-# [수정] B 방식 적용: 변수명 및 URL 지정
-SQLALCHEMY_DATABASE_URL = "postgresql://postgres:설치시비밀번호@localhost:5432/hairmatch_db"
-engine = create_engine(SQLALCHEMY_DATABASE_URL)
+app = FastAPI(title="HairMatch API")
 
-# 1. 전역 리소스 로드
-model = tf.keras.models.load_model("hairmatch_face_model.keras")
-mp_face_mesh = mp.solutions.face_mesh.FaceMesh(static_image_mode=True, max_num_faces=1)
-class_names = ['Heart Face', 'Long Face', 'Oval Face', 'Round Face', 'Square Face']
+# 정적 파일(CSS, JS) 및 Jinja2 템플릿 설정
+app.mount("/static", StaticFiles(directory="static"), name="static")
+templates = Jinja2Templates(directory="templates")
+
+# TensorFlow 모델 및 MediaPipe 초기화
+model = tf.keras.models.load_model("hairmatch_face_model.keras", compile=False)
+mp_face_mesh = mp_face_mesh_module.FaceMesh(static_image_mode=True, max_num_faces=1)
 
 
-def get_db_recommendation(face_shape: str, gender: str):
-    """face_shape + gender 조합으로 추천 정보 조회 (PostgreSQL 문법 반영)"""
-    try:
-        # [수정] psycopg2를 활용해 원격 데이터베이스 접속 자원을 획득합니다.
-        conn = psycopg2.connect(SQLALCHEMY_DATABASE_URL)
-        cur = conn.cursor()
-        
-        # [수정] PostgreSQL은 플레이스홀더로 물음표(?) 대신 %s 를 사용해야 합니다.
-        cur.execute(
-            "SELECT style_name, advice FROM hair_recommend WHERE face_shape = %s AND gender = %s",
-            (face_shape, gender)
-        )
-        result = cur.fetchone()
-        return result
-    except Exception as e:
-        print(f"추천 정보 조회 중 서버 에러 발생: {e}")
+# ==========================================
+# 1. 사용자 인증 의존성 (JWT / Session)
+# ==========================================
+async def get_optional_user(request: Request) -> Optional[dict]:
+    """비로그인 유저도 허용 (토큰이 없으면 None 반환)"""
+    auth_header = request.headers.get("Authorization")
+    if not auth_header or not auth_header.startswith("Bearer "):
         return None
-    finally:
-        if 'conn' in locals() and conn:
-            conn.close()
+    token = auth_header.split(" ")[1]
+    # TODO: 토큰 검증 로직 구현 (여기서는 예시 유저 반환)
+    if token == "invalid":
+        return None
+    return {"user_id": 1, "username": "user01"}
+
+async def get_required_user(user: Optional[dict] = Depends(get_optional_user)) -> dict:
+    """로그인이 필수인 엔드포인트용 (비로그인 시 401 Unauthorized 예외 발생)"""
+    if not user:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="로그인이 필요한 서비스입니다."
+        )
+    return user
 
 
-@app.post("/analyze")
+# ==========================================
+# 2. HTML 페이지 라우팅
+# ==========================================
+@app.get("/", response_class=HTMLResponse)
+async def page_main(request: Request):
+    """메인 화면"""
+    return templates.TemplateResponse("index.html", {"request": request})
+
+@app.get("/loading", response_class=HTMLResponse)
+async def page_loading(request: Request):
+    """분석 진행 로딩 화면"""
+    return templates.TemplateResponse("loading.html", {"request": request})
+
+@app.get("/result", response_class=HTMLResponse)
+async def page_result(request: Request):
+    """분석 결과 화면"""
+    return templates.TemplateResponse("result.html", {"request": request})
+
+@app.get("/mypage", response_class=HTMLResponse)
+async def page_mypage(request: Request):
+    """마이페이지 화면"""
+    return templates.TemplateResponse("mypage.html", {"request": request})
+
+
+# ==========================================
+# 3. AI 분석 & 비즈니스 API
+# ==========================================
+@app.post("/api/analyze")
 async def analyze_face(
     file: UploadFile = File(...),
-    gender: str = Form(...)   # ⭐ 프론트에서 보낸 성별 받기
+    user: Optional[dict] = Depends(get_optional_user)
 ):
-    # 0. 성별 값 검증 (DB와 동일하게 'male' / 'female'만 허용)
-    if gender not in ("male", "female"):
-        raise HTTPException(status_code=400, detail="gender 값은 'male' 또는 'female'이어야 합니다.")
-
-    # 1. 이미지 읽기
+    """
+    얼굴형 분석 API (사진 파일은 서버 디스크에 저장되지 않고 메모리 상에서 바로 분석 후 파기됨)
+    """
     contents = await file.read()
     nparr = np.frombuffer(contents, np.uint8)
-    image = cv2.imdecode(nparr, cv2.IMREAD_COLOR)
+    img = cv2.imdecode(nparr, cv2.IMREAD_COLOR)
 
-    if image is None:
-        raise HTTPException(status_code=400, detail="올바른 이미지 파일이 아닙니다.")
+    if img is None:
+        raise HTTPException(status_code=400, detail="유효한 이미지 파일이 아닙니다.")
 
-    h, w, _ = image.shape
-    rgb_image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
+    # MediaPipe 및 TensorFlow 모델 분석 수행
+    # ... (모델 추론 처리) ...
+    detected_shape = "계란형"
+    recommended = ["시스루 댄디컷", "아이비리그컷"]
 
-    # 2. MediaPipe 얼굴 검출
-    results = mp_face_mesh.process(rgb_image)
-    if not results.multi_face_landmarks:
-        return {"status": "error", "message": "얼굴을 찾을 수 없습니다."}
+    # 로그인한 사용자인 경우 DB에 텍스트 분석 기록만 저장
+    if user:
+        # DB 저장 로직 (생략): save_history(user_id=user['user_id'], shape=detected_shape, styles=recommended)
+        pass
 
-    # 3. 얼굴 영역 크롭 및 전처리
-    landmarks = results.multi_face_landmarks[0]
-    x_coords = [lm.x for lm in landmarks.landmark]
-    y_coords = [lm.y for lm in landmarks.landmark]
+    return {
+        "face_shape": detected_shape,
+        "recommended_styles": recommended,
+        "is_logged_in": user is not None
+    }
 
-    x_min, x_max = int(min(x_coords) * w), int(max(x_coords) * w)
-    y_min, y_max = int(min(y_coords) * h), int(max(y_coords) * h)
 
-    face_crop = image[max(0, y_min):min(h, y_max), max(0, x_min):min(w, x_max)]
-    face_resized = cv2.resize(face_crop, (180, 180))
-
-    img_array = tf.keras.utils.img_to_array(face_resized) / 255.0
-    img_array = tf.expand_dims(img_array, 0)
-
-    # 4. 모델 예측
-    predictions = model.predict(img_array)
-    score = tf.nn.softmax(predictions[0])
-    res_shape = class_names[np.argmax(score)]
-
-    # 5. DB 매칭 (성별 + 얼굴형)
-    recommend = get_db_recommendation(res_shape, gender)
-
-    if recommend:
-        return {
-            "status": "success",
-            "face_shape": res_shape,
-            "gender": gender,
-            "recommendation": {
-                "hair_style": recommend[0],
-                "advice": recommend[1]
-            }
+@app.get("/api/history")
+async def get_history(user: dict = Depends(get_required_user)):
+    """분석 이력 조회 (로그인 필수)"""
+    # DB 조회 로직 (샘플 데이터 반환)
+    return [
+        {
+            "id": 1,
+            "face_shape": "계란형",
+            "recommended_styles": ["시스루 댄디컷", "아이비리그컷"],
+            "created_at": "2026-09-23T18:30:00"
         }
-    return {"status": "error", "message": "추천 정보를 찾을 수 없습니다."}
+    ]
+
+
+@app.get("/api/bookmarks")
+async def get_bookmarks(user: dict = Depends(get_required_user)):
+    """스타일 단위 북마크 목록 조회 (로그인 필수)"""
+    # DB 조회 로직 (샘플 데이터 반환)
+    return [
+        {
+            "id": 3,
+            "style_name": "시스루 댄디컷",
+            "face_shape": "계란형",
+            "created_at": "2026-09-23T18:35:00"
+        }
+    ]
+
+
+@app.delete("/api/bookmarks/{bookmark_id}", status_code=status.HTTP_204_NO_CONTENT)
+async def delete_bookmark(
+    bookmark_id: int, 
+    user: dict = Depends(get_required_user)
+):
+    """
+    북마크 해제 API (로그인 필수)
+    성공 시 본문 없이 HTTP 204 No Content 응답을 반환합니다.
+    """
+    # DB 삭제 로직: delete_user_bookmark(user_id=user['user_id'], bookmark_id=bookmark_id)
+    return Response(status_code=status.HTTP_204_NO_CONTENT)
