@@ -2,30 +2,231 @@
 <html lang="ko">
 <head>
     <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>마이페이지 - HairMatch</title>
     <link rel="stylesheet" href="/static/css/style.css">
 </head>
 <body>
-    <nav>
-        <a href="/">홈</a> | <a href="/mypage">마이페이지</a>
+    <nav class="navbar">
+        <div class="nav-brand"><a href="/">HairMatch</a></div>
+        <div class="nav-menu">
+            <a href="/">홈</a>
+            <a href="/mypage">마이페이지</a>
+            <span id="auth-nav-item"></span>
+        </div>
     </nav>
 
-    <main style="padding: 20px;">
+    <main class="container">
         <h1>마이페이지</h1>
-        <hr>
-        <section>
+        
+        <section class="section-card">
             <h2>내 분석 이력</h2>
-            <div id="history-list">
-                <p>최근 분석된 헤어스타일 추천 기록이 들어가는 영역입니다.</p>
-            </div>
+            <div id="history-list" class="list-container"></div>
         </section>
 
-        <section style="margin-top: 30px;">
+        <section class="section-card">
             <h2>북마크한 헤어스타일</h2>
-            <div id="bookmark-list">
-                <p>저장한 스타일 목록이 나열됩니다.</p>
-            </div>
+            <div id="bookmark-list" class="list-container"></div>
         </section>
     </main>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            checkAuthStatus();
+            fetchMypageData();
+        });
+
+        // 1. 날짜 포맷 함수 (ISO 8601 -> YYYY-MM-DD HH:mm)
+        function formatDate(isoString) {
+            if (!isoString) return '';
+            const date = new Date(isoString);
+            const yyyy = date.getFullYear();
+            const mm = String(date.getMonth() + 1).padStart(2, '0');
+            const dd = String(date.getDate()).padStart(2, '0');
+            const hh = String(date.getHours()).padStart(2, '0');
+            const min = String(date.getMinutes()).padStart(2, '0');
+            return `${yyyy}-${mm}-${dd} ${hh}:${min}`;
+        }
+
+        // 2. 네비게이션 로그인/로그아웃 버튼 설정
+        function checkAuthStatus() {
+            const authNavItem = document.getElementById('auth-nav-item');
+            const token = localStorage.getItem('token');
+            authNavItem.replaceChildren();
+
+            if (token) {
+                const logoutBtn = document.createElement('a');
+                logoutBtn.href = '#';
+                logoutBtn.textContent = '로그아웃';
+                logoutBtn.addEventListener('click', (e) => {
+                    e.preventDefault();
+                    localStorage.removeItem('token');
+                    window.location.href = '/login';
+                });
+                authNavItem.appendChild(logoutBtn);
+            } else {
+                const loginLink = document.createElement('a');
+                loginLink.href = '/login';
+                loginLink.textContent = '로그인';
+                authNavItem.appendChild(loginLink);
+            }
+        }
+
+        // 3. 페이지 진입 시 데이터 통합 호출
+        async function fetchMypageData() {
+            const token = localStorage.getItem('token');
+            const headers = token ? { 'Authorization': `Bearer ${token}` } : {};
+
+            try {
+                const [historyRes, bookmarkRes] = await Promise.all([
+                    fetch('/api/history', { headers }),
+                    fetch('/api/bookmarks', { headers })
+                ]);
+
+                // 401(비로그인) 처리
+                if (historyRes.status === 401 || bookmarkRes.status === 401) {
+                    alert('로그인이 필요한 페이지입니다.');
+                    window.location.href = '/login';
+                    return;
+                }
+
+                if (historyRes.ok) {
+                    const histories = await historyRes.json();
+                    renderHistoryList(histories);
+                }
+
+                if (bookmarkRes.ok) {
+                    const bookmarks = await bookmarkRes.json();
+                    renderBookmarkList(bookmarks);
+                }
+            } catch (err) {
+                console.error('데이터 로딩 오류:', err);
+            }
+        }
+
+        // 4. 분석 이력 목록 렌더링 (textContent 사용)
+        function renderHistoryList(histories) {
+            const container = document.getElementById('history-list');
+            container.replaceChildren();
+
+            if (!histories || histories.length === 0) {
+                renderEmptyState(container, '아직 분석 기록이 없어요.');
+                return;
+            }
+
+            histories.forEach(item => {
+                const card = document.createElement('div');
+                card.className = 'history-item';
+
+                const dateEl = document.createElement('span');
+                dateEl.className = 'item-date';
+                dateEl.textContent = formatDate(item.created_at);
+
+                const shapeEl = document.createElement('strong');
+                shapeEl.className = 'item-shape';
+                shapeEl.textContent = `얼굴형: ${item.face_shape}`;
+
+                const styleEl = document.createElement('span');
+                styleEl.className = 'item-style';
+                const stylesText = Array.isArray(item.recommended_styles) 
+                    ? item.recommended_styles.join(', ') 
+                    : item.recommended_styles;
+                styleEl.textContent = `추천 스타일: ${stylesText}`;
+
+                card.appendChild(dateEl);
+                card.appendChild(shapeEl);
+                card.appendChild(styleEl);
+                container.appendChild(card);
+            });
+        }
+
+        // 5. 북마크 목록 렌더링 (textContent 사용)
+        function renderBookmarkList(bookmarks) {
+            const container = document.getElementById('bookmark-list');
+            container.replaceChildren();
+
+            if (!bookmarks || bookmarks.length === 0) {
+                renderEmptyState(container, '북마크한 헤어스타일이 없어요.');
+                return;
+            }
+
+            bookmarks.forEach(item => {
+                const card = document.createElement('div');
+                card.className = 'bookmark-item';
+
+                const infoBox = document.createElement('div');
+                infoBox.className = 'bookmark-info';
+
+                const titleEl = document.createElement('strong');
+                titleEl.className = 'item-title';
+                titleEl.textContent = item.style_name;
+
+                const metaEl = document.createElement('span');
+                metaEl.className = 'item-meta';
+                metaEl.textContent = `얼굴형: ${item.face_shape} | 저장일: ${formatDate(item.created_at)}`;
+
+                infoBox.appendChild(titleEl);
+                infoBox.appendChild(metaEl);
+
+                const deleteBtn = document.createElement('button');
+                deleteBtn.className = 'btn-delete';
+                deleteBtn.textContent = '해제';
+                deleteBtn.addEventListener('click', () => removeBookmark(item.id, card));
+
+                card.appendChild(infoBox);
+                card.appendChild(deleteBtn);
+                container.appendChild(card);
+            });
+        }
+
+        // 6. 북마크 해제 (DELETE /api/bookmarks/{id} -> 204 대응)
+        async function removeBookmark(bookmarkId, element) {
+            if (!confirm('북마크를 해제하시겠습니까?')) return;
+
+            const token = localStorage.getItem('token');
+            try {
+                const res = await fetch(`/api/bookmarks/${bookmarkId}`, {
+                    method: 'DELETE',
+                    headers: token ? { 'Authorization': `Bearer ${token}` } : {}
+                });
+
+                if (res.status === 401) {
+                    alert('로그인이 만료되었습니다.');
+                    window.location.href = '/login';
+                    return;
+                }
+
+                if (res.status === 204 || res.ok) {
+                    element.remove();
+                    const container = document.getElementById('bookmark-list');
+                    if (container.children.length === 0) {
+                        renderEmptyState(container, '북마크한 헤어스타일이 없어요.');
+                    }
+                } else {
+                    alert('북마크 해제에 실패했습니다.');
+                }
+            } catch (err) {
+                console.error('삭제 요청 중 오류:', err);
+            }
+        }
+
+        // 7. 빈 상태 UI 생성
+        function renderEmptyState(container, messageText) {
+            const emptyBox = document.createElement('div');
+            emptyBox.className = 'empty-state';
+
+            const msg = document.createElement('p');
+            msg.textContent = messageText;
+
+            const link = document.createElement('a');
+            link.href = '/';
+            link.className = 'btn-link';
+            link.textContent = '분석하러 가기';
+
+            emptyBox.appendChild(msg);
+            emptyBox.appendChild(link);
+            container.appendChild(emptyBox);
+        }
+    </script>
 </body>
 </html>
