@@ -1,0 +1,194 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>회원가입 - HairMatch</title>
+    <style>
+        body { 
+            font-family: 'Pretendard', -apple-system, sans-serif; 
+            display: flex; 
+            justify-content: center; 
+            align-items: center; 
+            min-height: 100vh; 
+            margin: 0; 
+            background-color: #F8F5FF; /* 인덱스 페이지와 동일한 배경 연보라 */
+            color: #1E1B4B; 
+            padding: 40px 0; 
+            box-sizing: border-box;
+        }
+
+        .signup-container { 
+            background: white; 
+            padding: 40px; 
+            border-radius: 24px; 
+            box-shadow: 0 20px 40px rgba(139, 92, 246, 0.08); 
+            border: 1px solid #E9D5FF;
+            width: 400px; 
+        }
+
+        h2 { text-align: center; font-size: 24px; font-weight: 800; margin-bottom: 30px; color: #1E1B4B; }
+
+        .input-row { display: flex; gap: 10px; margin-bottom: 15px; }
+        .input-group { margin-bottom: 15px; }
+        label { display: block; font-size: 13px; font-weight: 600; color: #655B96; margin-bottom: 5px; margin-left: 5px; }
+        
+        input, select { 
+            width: 100%; 
+            padding: 12px; 
+            border: 1px solid #E9D5FF; 
+            border-radius: 8px; 
+            box-sizing: border-box; 
+            font-size: 14px; 
+            transition: 0.2s; 
+            color: #1E1B4B;
+        }
+        input:focus, select:focus { 
+            outline: none; 
+            border-color: #8B5CF6; 
+            box-shadow: 0 0 0 3px rgba(139, 92, 246, 0.15); 
+        }
+
+        /* 중복 확인 버튼 보라색 스타일 */
+        .dup-btn { 
+            width: 100px; 
+            background-color: #F3E8FF; 
+            color: #8B5CF6; 
+            border: 1px solid #E9D5FF; 
+            border-radius: 8px; 
+            cursor: pointer; 
+            font-size: 12px; 
+            font-weight: 700; 
+            transition: 0.2s;
+        }
+        .dup-btn:hover { 
+            background-color: #E9D5FF; 
+            color: #7C3AED;
+        }
+
+        .gender-group { display: flex; gap: 20px; padding: 10px 5px; }
+        .gender-group label { font-weight: normal; cursor: pointer; display: flex; align-items: center; gap: 5px; color: #1E1B4B; }
+        .gender-group input[type="radio"] {
+            accent-color: #8B5CF6; /* 라디오 버튼 체크 색상 보라색으로 설정 */
+            width: auto;
+        }
+
+        /* [변경] 메인 가입 완료 버튼 색상 (#8B5CF6) */
+        button.submit-btn { 
+            background-color: #8B5CF6; 
+            color: white; 
+            border: none; 
+            padding: 15px; 
+            border-radius: 12px; 
+            cursor: pointer; 
+            font-size: 16px; 
+            font-weight: 600; 
+            width: 100%; 
+            margin-top: 20px; 
+            transition: 0.3s; 
+            box-shadow: 0 4px 12px rgba(139, 92, 246, 0.2);
+        }
+        button.submit-btn:hover { 
+            background-color: #7C3AED; 
+            transform: translateY(-2px); 
+            box-shadow: 0 6px 18px rgba(139, 92, 246, 0.3);
+        }
+
+        .back-home { display: block; text-align: center; margin-top: 20px; font-size: 13px; color: #A78BFA; text-decoration: none; }
+        .back-home:hover { color: #8B5CF6; }
+    </style>
+</head>
+<body>
+
+<div class="signup-container">
+    <h2>회원가입</h2>
+    
+    <form id="signupForm">
+        <label>아이디</label>
+        <div class="input-row">
+            <input type="text" id="regId" placeholder="아이디 입력" required style="flex: 1;">
+            <button type="button" class="dup-btn" onclick="checkDuplicate()">중복 확인</button>
+        </div>
+
+        <label>비밀번호</label>
+        <div class="input-group">
+            <input type="password" id="regPw" placeholder="비밀번호 입력" required>
+        </div>
+
+        <label>이메일</label>
+        <div class="input-group">
+            <input type="email" id="regEmail" placeholder="example@hairmatch.com" required>
+        </div>
+
+        <label>이름</label>
+        <div class="input-group">
+            <input type="text" id="regName" placeholder="이름을 입력해주세요" required>
+        </div>
+
+        <div class="input-row">
+            <div style="flex: 1;">
+                <label>생년월일</label>
+                <input type="date" id="regBirth" required>
+            </div>
+            <div style="flex: 1;">
+                <label>성별</label>
+                <div class="gender-group">
+                    <label><input type="radio" name="regGender" value="male" checked> 남성</label>
+                    <label><input type="radio" name="regGender" value="female"> 여성</label>
+                </div>
+            </div>
+        </div>
+
+        <button type="submit" class="submit-btn">가입 완료하기</button>
+    </form>
+
+    <a href="index.html" class="back-home">메인으로 돌아가기</a>
+</div>
+
+<script>
+    // 중복 확인 (간단 예시)
+    function checkDuplicate() {
+        const userId = document.getElementById('regId').value;
+        if(!userId) {
+            alert("아이디를 입력해주세요.");
+            return;
+        }
+        alert(userId + "는 사용 가능한 아이디입니다.");
+    }
+
+    // ⭐ DB 연동 회원가입 로직
+    document.getElementById('signupForm').onsubmit = async (e) => {
+        e.preventDefault();
+        
+        // 1. 입력 데이터 수집
+        const formData = new FormData();
+        formData.append("username", document.getElementById('regId').value);
+        formData.append("password", document.getElementById('regPw').value);
+        formData.append("email", document.getElementById('regEmail').value);
+        formData.append("name", document.getElementById('regName').value);
+        // 필요 시 생년월일도 추가 가능
+        formData.append("gender", document.querySelector('input[name="regGender"]:checked').value);
+
+        try {
+            const response = await fetch('http://127.0.0.1:8000/signup', {
+                method: 'POST',
+                body: formData
+            });
+            
+            const data = await response.json();
+
+            if (response.ok) {
+                alert("회원가입이 성공적으로 완료되었습니다!");
+                window.location.href = "login.html";
+            } else {
+                alert("회원가입 실패: " + (data.detail || "알 수 없는 오류가 발생했습니다."));
+            }
+        } catch (error) {
+            console.error("Error:", error);
+            alert("서버 연결 실패! 네트워크 상태나 서버 실행 여부를 확인하세요.");
+        }
+    };
+</script>
+
+</body>
+</html>
